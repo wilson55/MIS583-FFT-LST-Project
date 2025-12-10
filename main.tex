@@ -14,7 +14,7 @@
 
 %\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
 
-\setlength{\droptitle}{-5em}
+%\setlength{\droptitle}{-5em}
 
 \begin{document}
 
@@ -24,35 +24,39 @@
    
 
     % --- School & Course Info ---
-    {\Large 國立中山大學 資訊管理學系\\[6pt]
-    MIS583 深度學習應用 期末專題報告 
+    {\Large MIS583 深度學習應用 期末專題報告 
      \\[0.5cm]}
 
     % --- Title ---
     {\LARGE \textbf{Toward Learnable Spectral Transforms: \\[6pt]
     MLP Approximation and Spectral Bias Analysis of the Fast Fourier Transform} \\[0.5 cm]}
-
     \section*{Executive Summary}
+    \begin{flushleft}
+   
+    This project investigates whether multilayer perceptrons (MLPs) can learn the
+The Fast Fourier Transform (FFT) is a spectral operator. We reformulate FFT
+prediction as supervised spectral learning and train two models—LST-MLP and
+φ-LST—to approximate amplitude and phase across structured ECG and broadband
+ESC-50 audio. The approach integrates FFT supervision, frequency-resolved error
+analysis, and receptive-field interpretation.
 
-This project examines whether multilayer perceptrons (MLPs) can learn the Fast
-Fourier Transform (FFT) as a spectral operator. Using ECG (structured) and
-ESC-50 audio (non-stationary), we train two models—LST-MLP and φ-LST—to predict
-FFT amplitude and phase. Amplitude is learnable, but phase shows strong
-instability, discontinuities, and high-frequency error. Analysis reveals a clear
-spectral bias favoring low frequencies and neuron receptive fields that resemble
-Fourier bases. These findings clarify both the potential and the inherent
-limitations of MLP-based spectral transforms.
+Experiments show that amplitude is learnable, but phase suffers from
+instability, discontinuities, and large high-frequency errors. A clear spectral
+bias is observed: low frequencies are learned first and most accurately, while
+high-frequency and phase components remain difficult. Neuron analyses reveal
+emergent Fourier-like filters, indicating partial internalization of spectral
+structure.The results demonstrate both the promise and fundamental limits of
+MLP-based FFT approximation
 
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.55\linewidth]{pipeline.jpg}
-\caption*{Overview of the Learnable Spectral Transform (LST) pipeline.}
-\end{figure}
-
+    \begin{figure}[h]
+    \centering
+    \includegraphics[width=0.90\linewidth, height=0.5\linewidth]{pipeline.jpg}
+    \caption*{Overview of the LST framework.}
+    \end{figure}
+    \end{flushleft}
     \vfill
      % --- Group & Member ---
-    {\large Group No.\ 11 \\[6pt]
-    Team Member：王淵司（Wang Yuan Shih）Student ID：D134020001 \\[6pt]
+    {\large Group No.\ 11  Team Member：王淵司（Wang Yuan Shih）Student ID：D134020001 \\[6pt]
     授課教師：楊惠芳教授}
 
 \end{titlepage}
@@ -66,13 +70,13 @@ limitations of MLP-based spectral transforms.
 \vspace{-0.8cm}
 \section{Introduction}
 \vspace{-0.5cm}
-The Fast Fourier Transform (FFT) is one of the most influential algorithms in digital signal processing, enabling efficient conversion between time and frequency domains \cite{cooley1965fft, oppenheim2010dsp, stoica2005spectral}. Despite its elegance, the FFT relies on assumptions of stationarity and linearity that rarely hold in real-world applications. Biomedical signals such as ECG often exhibit morphological variability and transient disturbances, whereas environmental audio contains unpredictable bursts and wideband, non-stationary components. A fixed sinusoidal basis cannot adapt to such heterogeneity, motivating the study of learnable spectral transforms that can model frequency-domain behavior directly from data.
+The Fast Fourier Transform (FFT) is one of the most influential algorithms in digital signal processing, enabling efficient conversion between time and frequency domains \cite{cooley1965fft, oppenheim2010dsp, stoica2005spectral}. Despite its elegance, the FFT relies on assumptions of stationarity and linearity that rarely hold in real-world applications \cite{therrien1992nonstationary, priestley1981spectral}. Biomedical signals such as ECG often exhibit morphological variability and transient disturbances \cite{clifford2006ecg, goldberger2000physiobank}, whereas environmental audio contains unpredictable bursts and wideband, non-stationary components \cite{purwins2019deepaudio}. A fixed sinusoidal basis cannot adapt to such heterogeneity \cite{mallat1999wavelet}, motivating the study of learnable spectral transforms that can model frequency-domain behavior directly from data.
 
-Recent advances illustrate a growing convergence between neural networks and spectral analysis. WaveNet demonstrates the ability to model raw audio using dilated convolutions \cite{oord2016wavenet}; SpectralNet uses deep learning to approximate spectral embeddings \cite{shaham2018spectralnet}; and Fourier Neural Operators (FNO) leverage Fourier kernels to solve parametric PDEs \cite{li2020fno, kovachki2021neuraloperator}. Parallel theoretical investigations show that modern neural networks possess an inherent \textit{spectral bias}, meaning they learn low-frequency components faster than high-frequency components \cite{rahaman2019spectral, misiakiewicz2021implicit, tancik2020fourier}. Furthermore, several works connect neural-network approximation theory with Fourier analysis \cite{basri2020fourier, yarotsky2017relu}.
+Recent advances illustrate a growing convergence between neural networks and spectral analysis. WaveNet demonstrates the ability to model raw audio using dilated convolutions \cite{oord2016wavenet}; SpectralNet uses deep learning to approximate spectral embeddings \cite{shaham2018spectralnet}; and Fourier Neural Operators (FNO) leverage Fourier kernels to solve parametric PDEs \cite{li2020fno, kovachki2021neuraloperator}. Parallel theoretical investigations show that modern neural networks possess an inherent \textit{spectral bias}, meaning they learn low-frequency components faster than high-frequency components \cite{rahaman2019spectral, misiakiewicz2021implicit, tancik2020fourier, xu2019frequencyprinciple}. Furthermore, several works connect neural-network approximation theory with Fourier analysis \cite{basri2020fourier, yarotsky2017relu, barron1993universal, poggio2017deep}.
 
-Despite these developments, prior research seldom examines whether a neural network can \textit{explicitly learn the FFT operator} itself—i.e., to predict amplitude and phase for each frequency bin. This distinction is crucial: amplitude learning is relatively stable, whereas phase is discontinuous and highly sensitive to small perturbations, leading to significant reconstruction errors \cite{sitdikov2022phase}. Understanding these behaviors provides insight not only into spectral learning but also into the fundamental inductive biases of deep neural networks \cite{bietti2019inductive, jacot2018ntk}.
+Despite these developments, prior research seldom examines whether a neural network can \textit{explicitly learn the FFT operator} itself—i.e., to predict amplitude and phase for each frequency bin. This distinction is crucial: amplitude learning is relatively stable, whereas phase is discontinuous and highly sensitive to small perturbations \cite{donoho1995wavelet, sitdikov2022phase}, leading to significant reconstruction errors. Understanding these behaviors provides insight not only into spectral learning but also into the fundamental inductive biases of deep neural networks \cite{bietti2019inductive, jacot2018ntk, tancik2020fourier}.
 
-This study reformulates the FFT as a supervised learnable operator and systematically investigates whether a multilayer perceptron (MLP) can approximate the discrete Fourier transform across structured biomedical signals and non-stationary environmental audio. Beyond accuracy, we analyze the model's internal frequency behavior using receptive-field analysis, harmonic consistency tests, phase-stability evaluation, and frequency-locality mapping.
+This study reformulates the FFT as a supervised learnable operator and systematically investigates whether a multilayer perceptron (MLP) can approximate the discrete Fourier transform across structured biomedical signals and non-stationary environmental audio \cite{li2020fno, kovachki2021neuraloperator, basri2020fourier}. Beyond accuracy, we analyze the model's internal frequency behavior using receptive-field analysis, harmonic consistency tests, phase-stability evaluation, and frequency-locality mapping \cite{rahaman2019spectral, jacot2018ntk, sitdikov2022phase}.
 
 \noindent
 \textbf{Research Questions}
@@ -211,29 +215,25 @@ Frequency-domain interpretability analysis.
 }
 \label{fig:interpretability}
 \end{figure*}
+%3.1 ----------------------
 The three interpretability analyses in Fig.~\ref{fig:interpretability} collectively
 demonstrate that the LST-MLP develops clear frequency-selective structure.  
 First, the individual neuron RF spectra in Fig.~\ref{fig:interpretability}(a)
-show that first-layer neurons consistently exhibit stronger responses in the low-
-and mid-frequency ranges, with a sharp magnitude drop beyond the Nyquist midpoint.
-This pattern resembles learned Fourier-like receptive fields and reflects the
-spectral bias of neural networks.  
+show that first-layer neurons consistently exhibit stronger responses in the low-and mid-frequency ranges, with a sharp magnitude drop beyond the Nyquist midpoint.
+This pattern resembles learned Fourier-like receptive fields \cite{basri2020fourier, yarotsky2017relu}and reflects the spectral bias of neural networks \cite{rahaman2019spectral, misiakiewicz2021implicit}.  
 
-Second, the frequency locality matrix in Fig.~\ref{fig:interpretability}(b)
-confirms that each input tone predominantly activates a localized output frequency
-region, indicating near-orthogonality analogous to cosine/sine bases.  
-The slight spreading observed at higher frequencies highlights the limited
-learnability of broadband components.  
+Second, the frequency locality matrix in Fig.~\ref{fig:interpretability}(b) confirms that each input tone predominantly activates a localized output frequency
+region, indicating near-orthogonality analogous to cosine/sine bases
+\cite{oppenheim2010dsp}.  
+The slight spreading observed at higher frequencies highlights the limited learnability of broadband components \cite{rahaman2019spectral}.  
 
 Finally, the harmonic consistency test in
-Fig.~\ref{fig:interpretability}(c) shows that the model reliably recovers
-fundamental and low-order harmonics while underestimating higher-order peaks.
-This degradation is consistent with the reduced high-frequency selectivity seen
-in the RF spectra.  
+Fig.~\ref{fig:interpretability}(c) shows that the model reliably recovers fundamental and low-order harmonics while underestimating higher-order peaks.
+This degradation is consistent with the reduced high-frequency selectivity seen in the RF spectra \cite{rahaman2019spectral, basri2020fourier}.  
 
-Taken together, Fig.~\ref{fig:interpretability}(a)--(c) verify that the
-LST-MLP internalizes interpretable Fourier-like structures and satisfies the
-objectives of the RF Matching analysis.
+Taken together, Fig.~\ref{fig:interpretability}(a)--(c) verify that the LST-MLP internalizes interpretable Fourier-like structures and satisfies the objectives of the RF Matching analysis.
+
+%---------------------------
 \vspace{-0.5cm}
 \subsection{Phase Instability}
 \vspace{-0.2cm}
@@ -273,104 +273,62 @@ Phase instability analysis across datasets.
 \label{fig:phase_instability}
 \end{figure*}
 
-Phase prediction exhibits substantially higher instability than amplitude
-prediction, and the three analyses in Fig.~\ref{fig:phase_instability}(a)--(c)
-highlight the underlying reasons. First, although amplitude errors decrease
-rapidly across frequency bins for structured signals such as MIT-BIH ECG
-(Fig.~\ref{fig:phase_instability}(a), left), the same trend does not hold for
-non-stationary audio. The ESC-50 curves in Fig.~\ref{fig:phase_instability}(a), right,
-remain flat and comparatively large across all frequencies. This contrast
-indicates that the model fails to exploit harmonic regularity when phase varies
-rapidly, resulting in poor amplitude–phase coupling and unstable phase learning.
+Phase prediction exhibits substantially higher instability than amplitude prediction, and the three analyses in Fig.~\ref{fig:phase_instability}(a)--(c) highlight the underlying reasons. First, although amplitude errors decrease rapidly across frequency bins for structured signals such as MIT-BIH ECG (Fig.~\ref{fig:phase_instability}(a), left), the same trend does not hold for non-stationary audio. The ESC-50 curves in Fig.~\ref{fig:phase_instability}(a),right, remain flat and comparatively large across all frequencies. This contrast indicates that the model fails to exploit harmonic regularity when phase varies rapidly, resulting in poor amplitude–phase coupling and unstable phase learning\cite{oppenheim2010dsp, stoica2005spectral}.  
 
 Second, the time-domain reconstruction results in
-Fig.~\ref{fig:phase_instability}(c) reveal the practical consequence of phase
-error. Even when amplitude is predicted reasonably well, small phase deviations
-accumulate across frequency bins and produce noticeable waveform distortions.
-The φ-LST reconstruction partially mitigates these discrepancies but still
-exhibits temporal misalignment and oscillatory drift, demonstrating that phase
-remains the dominant source of reconstruction error.
+Fig.~\ref{fig:phase_instability}(c) reveal the practical consequence of phase error. Even when amplitude is predicted reasonably well, small phase deviationsaccumulate across frequency bins and produce noticeable waveform distortions\cite{widrow1975adaptive, sitdikov2022phase}. The φ-LST reconstruction partially mitigates these discrepancies but still exhibits temporal misalignment and oscillatory drift, demonstrating that phase remains the dominant source of reconstruction error \cite{sitdikov2022phase}.  
 
-Together, Fig.~\ref{fig:phase_instability}(a)--(c) demonstrate that phase
-components are fundamentally more difficult to learn than amplitude: they lack
-spatial smoothness, contain discontinuities at \( \pm \pi \), and amplify
-frequency-wise prediction noise when mapped back to the time domain. These
-properties explain the strong phase instability observed in the LST-MLP and
-motivate the need for quadrant-aware phase decomposition in φ-LST.
+Together, Fig.~\ref{fig:phase_instability}(a)--(c) demonstrate that phase components are fundamentally more difficult to learn than amplitude: they lack spatial smoothness, contain discontinuities at \( \pm \pi \), and amplify frequency-wise prediction noise when mapped back to the time domain
+\cite{rahaman2019spectral, tancik2020fourier}. These properties explain the strong phase instability observed in the LST-MLP and motivate the need for quadrant-aware phase decomposition in φ-LST.
+
 \vspace{-0.5cm}
 \subsection{Dataset Effects}
 \vspace{-0.2cm}
+%-------------------------------
 The role of dataset structure becomes evident when comparing the results across
 MIT-BIH ECG and ESC-50 audio. As shown in the Phase Instability analysis in
 Fig.~\ref{fig:phase_instability}(a)--(b), ECG signals exhibit rapidly decreasing
 amplitude error across frequency bins due to their stable and harmonic spectral
-structure. In contrast, ESC-50 audio produces consistently high and irregular
-errors, reflecting its broadband and transient-rich nature. These results
-indicate that harmonic signals align well with the inductive bias of MLP-based
-spectral models, whereas broadband signals induce strong spectral mixing and
-unstable amplitude–phase coupling.
+structure \cite{oppenheim2010dsp, stoica2005spectral}. In contrast, ESC-50 audio
+produces consistently high and irregular errors, reflecting its broadband and
+transient-rich nature \cite{oord2016wavenet}. These results indicate that
+harmonic signals align well with the inductive bias of MLP-based spectral
+models, whereas broadband signals induce strong spectral mixing and unstable
+amplitude–phase coupling \cite{rahaman2019spectral, misiakiewicz2021implicit}.  
 
 To further illustrate this effect, the harmonic consistency analysis in
 Fig.~\ref{fig:interpretability}(c) shows that the model accurately reconstructs
 fundamental and low-order harmonics for ECG-like signals but systematically
 underestimates higher harmonics. Signals lacking harmonic regularity, such as
 ESC-50 audio, do not exhibit such stable spectral patterns, highlighting their
-greater learning difficulty.
+greater learning difficulty \cite{oppenheim2010dsp}.  
 
 Together, these observations confirm that dataset characteristics—harmonicity,
 stationarity, and spectral concentration—directly influence spectral
-learnability and explain the pronounced performance gap between ECG and
-ESC-50.
+learnability \cite{widrow1975adaptive, rahaman2019spectral} and explain the
+pronounced performance gap between ECG and ESC-50.
 
 \vspace{-0.5cm}
 \subsection{Neuron Receptive Fields}
 \vspace{-0.2cm}
 As shown in the RF analysis in Fig.~\ref{fig:interpretability}(a) and
-Fig.~\ref{fig:interpretability}(b), first-layer weight vectors develop
-frequency-selective receptive fields that closely resemble low-frequency
-cosine/sine bases. Most neurons exhibit smooth, band-limited spectra with
-energy concentrated in the low- and mid-frequency ranges. The histogram of
-dominant frequencies in Fig.~\ref{fig:interpretability}(c) further shows that
-low-frequency selective neurons are abundant, whereas high-frequency neurons are
-sparse, indicating a gradual degradation of representation quality toward the
-Nyquist region. This emergent Fourier-like organization is consistent with
-theoretical predictions in~\cite{rahaman2019spectral, misiakiewicz2021implicit}.
+Fig.~\ref{fig:interpretability}(b), first-layer weight vectors develop frequency-selective receptive fields that closely resemble low-frequency cosine/sine bases \cite{basri2020fourier, yarotsky2017relu}. Most neurons exhibit smooth, band-limited spectra with energy concentrated in the low- and
+mid-frequency ranges \cite{jacot2018ntk}. The histogram of dominant frequencies in Fig.~\ref{fig:interpretability}(c) further shows that low-frequency selective neurons are abundant, whereas high-frequency neurons are sparse, indicating a gradual degradation of representation quality toward the Nyquist region. This emergent Fourier-like organization is consistent with theoretical predictions in~\cite{rahaman2019spectral, misiakiewicz2021implicit}.
 \vspace{-0.5cm}
 \section{Conclusion}
 \vspace{-0.5cm}
-This study provides the first systematic examination of the feasibility and
-limitations of treating the Fast Fourier Transform as a learnable operator
-within multilayer perceptrons. While earlier sections established that amplitude
-mappings are reliably learnable, our results also reveal persistent phase
-instability and pronounced frequency-dependent error patterns that expose
-fundamental constraints of neural spectral representations.
+This study provides the first systematic examination of the feasibility and limitations of treating the Fast Fourier Transform as a learnable operator within multilayer perceptrons \cite{li2020fno, kovachki2021neuraloperator}. While earlier sections established that amplitude mappings are reliably learnable, our results also reveal persistent phase instability and pronounced frequency-dependent error patterns that expose fundamental constraints of neural spectral representations \cite{sitdikov2022phase, oppenheim2010dsp}.  
 
-The findings provide clear answers to the four research questions. RQ1 asked
-whether an MLP can learn accurate amplitude and phase mappings across
-heterogeneous signals. Empirically, the model consistently learns amplitude
-patterns but fails to stably approximate phase, especially at higher
-frequencies, indicating that FFT approximation is only partially achievable with
-standard real-valued MLPs. RQ2 examined the manifestation of spectral bias. Our
-frequency-resolved analyses show a strong and systematic low-frequency bias:
-errors increase monotonically toward the Nyquist region, and phase spikes align
-with theoretical predictions of high-frequency underfitting. RQ3 explored the
-interpretability of internal spectral representations. Receptive-field matching
-demonstrates that first-layer neurons spontaneously develop Fourier-like filters
-in the low-frequency range, with increasingly diffuse and mixed responses at
-higher frequencies, revealing an emergent but frequency-limited spectral
-structure. RQ4 addressed dataset effects, showing that structured,
-quasi-periodic ECG signals are substantially easier for the model to learn than
-broadband, non-stationary ESC-50 audio, highlighting the strong dependence of
-spectral learnability on signal complexity and distributional properties.
+The findings provide clear answers to the four research questions. RQ1 asked whether an MLP can learn accurate amplitude and phase mappings across heterogeneous signals. Empirically, the model consistently learns amplitude patterns but fails to stably approximate phase, especially at higher frequencies,indicating that FFT approximation is only partially achievable with standard real-valued MLPs \cite{rahaman2019spectral, donoho1995wavelet}.  
 
-Together, these results clarify both the promise and the inherent limitations of
-MLP-based FFT approximation. While neural networks can partially internalize
-Fourier structure, their ability to serve as general-purpose spectral transforms
-is fundamentally constrained by spectral bias, phase discontinuity, and
-data-dependent frequency complexity. Future work should explore complex-valued
-architectures, phase-aware loss functions, and adaptive basis learning to
-overcome these limitations and move toward more robust, fully learnable spectral
-transform operators.
+RQ2 examined the manifestation of spectral bias. Our frequency-resolved analyses show a strong and systematic low-frequency bias: errors increase monotonically toward the Nyquist region, and phase spikes align with theoretical predictions of high-frequency underfitting \cite{rahaman2019spectral,misiakiewicz2021implicit,tancik2020fourier}.  
+
+RQ3 explored the interpretability of internal spectral representations. Receptive-field matching demonstrates that first-layer neurons spontaneously develop Fourier-like filters in the low-frequency range, with increasingly diffuse and mixed responses at higher frequencies, revealing an emergent but frequency-limited spectral structure \cite{basri2020fourier, yarotsky2017relu,jacot2018ntk}.  
+RQ4 addressed dataset effects, showing that structured, quasi-periodic ECG signals are substantially easier for the model to learn than broadband,non-stationary ESC-50 audio, highlighting the strong dependence of spectral learnability on signal complexity and distributional properties \cite{oppenheim2010dsp, oord2016wavenet}.  
+
+Together, these results clarify both the promise and the inherent limitations of MLP-based FFT approximation. While neural networks can partially internalize Fourier structure, their ability to serve as general-purpose spectral transforms is fundamentally constrained by spectral bias, phase discontinuity, and data-dependent frequency complexity \cite{rahaman2019spectral,
+misiakiewicz2021implicit}. Future work should explore complex-valued
+architectures, phase-aware loss functions, and adaptive basis learning to overcome these limitations and move toward more robust, fully learnable spectral transform operators.
 
 \newpage
 \section*{Resources}
