@@ -7,4 +7,4 @@ This project investigates whether multilayer perceptrons (MLPs) can learn the Th
     
 Experiments show that amplitude is learnable, but phase suffers from instability, discontinuities, and large high-frequency errors. A clear spectral bias is observed: low frequencies are learned first and most accurately, while high-frequency and phase components remain difficult. Neuron analyses reveal emergent Fourier-like filters, indicating partial internalization of spectral structure.The results demonstrate both the promise and fundamental limits of MLP-based FFT approximatio
 
-<img src="pipeline.jpg" width="400"/>
+<img src="pipeline.jpg" width="600"/>
